@@ -11,7 +11,8 @@ class GameStore {
 
         // Данные состояния
         this.money = 1000;
-        this.inventory = []; // Массив ID предметов
+        this.inventory = []; // Массив ID купленных предметов
+        this.placedItems = []; // Массив ID предметов, которые уже вытащены в мир
         
         // Эмиттер событий для реактивности
         this.events = new Phaser.Events.EventEmitter();
@@ -19,65 +20,63 @@ class GameStore {
         GameStore.instance = this;
     }
 
-    /**
-     * Получить текущий баланс
-     */
     getMoney() {
         return this.money;
     }
 
-    /**
-     * Получить весь инвентарь
-     */
     getInventory() {
         return this.inventory;
     }
 
     /**
-     * Проверка владения предметом
+     * Возвращает предметы, которые куплены, но еще не выставлены в мир
      */
+    getAvailableInventory() {
+        return this.inventory.filter(id => !this.placedItems.includes(id));
+    }
+
     hasItem(itemId) {
         return this.inventory.includes(itemId);
     }
 
-    /**
-     * Проверка, хватает ли денег
-     */
     canAfford(amount) {
         return this.money >= amount;
     }
 
-    /**
-     * Покупка предмета
-     */
     buyItem(item) {
         if (this.hasItem(item.id)) {
-            console.log('Already owned');
             return false;
         }
 
         if (this.canAfford(item.price)) {
             this.money -= item.price;
             this.inventory.push(item.id);
-            
-            // Уведомляем всех подписчиков (UI), что состояние изменилось
             this.emitChange();
             return true;
         } else {
-            console.log('Not enough money');
             this.events.emit('error', 'UI_NO_FUNDS');
             return false;
+        }
+    }
+
+    /**
+     * Помечает предмет как размещенный в мире (убирает из UI инвентаря)
+     */
+    markAsPlaced(itemId) {
+        if (this.inventory.includes(itemId) && !this.placedItems.includes(itemId)) {
+            this.placedItems.push(itemId);
+            this.emitChange();
         }
     }
 
     emitChange() {
         this.events.emit('stateChanged', {
             money: this.money,
-            inventory: this.inventory
+            inventory: this.inventory,
+            placedItems: this.placedItems
         });
     }
 }
 
-// Экспортируем готовый экземпляр
 const instance = new GameStore();
 export default instance;

@@ -4,12 +4,13 @@ export default class UIManager {
     /**
      * @param {DataManager} dataManager
      * @param {LocalizationManager} locManager
+     * @param {DragManager} dragManager - Передаем менеджер драга
      */
-    constructor(dataManager, locManager) {
+    constructor(dataManager, locManager, dragManager) {
         this.dataManager = dataManager;
         this.loc = locManager;
+        this.dragManager = dragManager;
         
-        // Находим корневой элемент UI
         this.root = document.getElementById('ui-root');
         
         // Подписываемся на изменения в сторе
@@ -20,11 +21,8 @@ export default class UIManager {
         this.render();
     }
 
-    /**
-     * Создаем базовую сетку интерфейса
-     */
     initStructure() {
-        this.root.innerHTML = ''; // Очистка
+        this.root.innerHTML = '';
 
         // 1. Хедер (Баланс)
         this.headerEl = document.createElement('div');
@@ -35,23 +33,23 @@ export default class UIManager {
         this.shopEl = document.createElement('div');
         this.shopEl.className = 'shop-container pointer-events-auto';
         this.root.appendChild(this.shopEl);
+
+        // 3. Инвентарь (Бар снизу)
+        this.inventoryEl = document.createElement('div');
+        this.inventoryEl.className = 'inventory-bar pointer-events-auto';
+        this.root.appendChild(this.inventoryEl);
     }
 
-    /**
-     * Основной рендер
-     */
     render() {
         this.renderHeader();
         this.renderShop();
+        this.renderInventory();
     }
 
-    /**
-     * Обновление при изменении данных
-     */
     updateUI() {
-        // Перерисовываем всё (в реальном проекте лучше точечно обновлять через Vue/React)
         this.renderHeader();
         this.renderShop();
+        this.renderInventory();
     }
 
     renderHeader() {
@@ -69,18 +67,18 @@ export default class UIManager {
         const title = this.loc.t('UI_SHOP_TITLE');
         const items = this.dataManager.getAllItems();
 
+        // Фильтруем items: если предмет уже куплен, показываем кнопку Owned. 
+        // Логика отображения осталась прежней, просто обновляем состояния.
+        
         let html = `<h2>${title}</h2><div class="items-grid">`;
 
         items.forEach(item => {
             const name = this.loc.t(item.nameKey);
             const isOwned = GameStore.hasItem(item.id);
             
-            // Определяем состояние кнопки
             let btnClass = isOwned ? 'btn-owned' : 'btn-buy';
             let btnText = isOwned ? this.loc.t('UI_BTN_OWNED') : `${this.loc.t('UI_BTN_BUY')} $${item.price}`;
             let disabled = isOwned ? 'disabled' : '';
-
-            // Цветная полоска для визуализации типа
             const colorStyle = `background-color: ${item.color}`;
 
             html += `
@@ -100,12 +98,11 @@ export default class UIManager {
         html += `</div>`;
         this.shopEl.innerHTML = html;
 
-        // Навешиваем обработчики событий
         const buttons = this.shopEl.querySelectorAll('.btn-buy');
         buttons.forEach(btn => {
             if (!btn.disabled) {
                 btn.onclick = (e) => {
-                    e.stopPropagation(); // Чтобы клик не ушел в игру
+                    e.stopPropagation();
                     const id = e.target.getAttribute('data-id');
                     const item = this.dataManager.getItemById(id);
                     GameStore.buyItem(item);
@@ -114,8 +111,43 @@ export default class UIManager {
         });
     }
 
+    renderInventory() {
+        // Получаем только доступные (не размещенные) предметы
+        const inventoryIds = GameStore.getAvailableInventory();
+        
+        let html = '';
+        if (inventoryIds.length === 0) {
+            html = `<div class="empty-msg">${this.loc.t('UI_INVENTORY_TITLE')}</div>`;
+        } else {
+            inventoryIds.forEach(id => {
+                const item = this.dataManager.getItemById(id);
+                // Карточка в инвентаре маленькая
+                html += `
+                    <div class="inv-slot" data-id="${item.id}" style="background-color: ${item.color}">
+                        <span class="inv-label">${item.type}</span>
+                    </div>
+                `;
+            });
+        }
+
+        this.inventoryEl.innerHTML = html;
+
+        // Навешиваем DragStart события
+        const slots = this.inventoryEl.querySelectorAll('.inv-slot');
+        slots.forEach(slot => {
+            const onStart = (e) => {
+                const id = slot.getAttribute('data-id');
+                const item = this.dataManager.getItemById(id);
+                this.dragManager.startDrag(e, item);
+            };
+
+            slot.addEventListener('mousedown', onStart);
+            slot.addEventListener('touchstart', onStart, { passive: false });
+        });
+    }
+
     showError(msgKey) {
-        alert(this.loc.t(msgKey)); // Пока просто алерт
+        alert(this.loc.t(msgKey));
     }
 
     destroy() {

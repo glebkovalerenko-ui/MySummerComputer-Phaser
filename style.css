@@ -49,7 +49,6 @@ body, html {
     pointer-events: none;
     padding: var(--safe-area-inset-top) var(--safe-area-inset-right) var(--safe-area-inset-bottom) var(--safe-area-inset-left);
     
-    /* Используем Flex для layout */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -93,7 +92,7 @@ body, html {
     margin: 20px;
     padding: 20px;
     border-radius: 16px;
-    max-height: 60vh; /* Чтобы не занимал весь экран */
+    max-height: 50vh; /* Уменьшили, чтобы влез инвентарь */
     overflow-y: auto;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     border: 1px solid #444;
@@ -108,7 +107,7 @@ body, html {
 
 .items-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 15px;
 }
 
@@ -159,7 +158,7 @@ button {
     font-family: inherit;
     transition: all 0.2s;
     width: 100%;
-    margin-top: auto; /* Прижимает кнопку к низу карточки */
+    margin-top: auto;
 }
 
 .btn-buy {
@@ -178,4 +177,72 @@ button {
     color: var(--c-disabled);
     border: 1px solid var(--c-disabled);
     cursor: default;
+}
+
+/* INVENTORY BAR */
+.inventory-bar {
+    position: relative; /* Внутри флекса ui-root оно встанет снизу */
+    width: 100%;
+    min-height: 100px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid #444;
+    padding: 15px;
+    display: flex;
+    gap: 15px;
+    overflow-x: auto;
+    align-items: center;
+    margin-top: auto; /* Прижимает к низу контейнера ui-root */
+}
+
+.empty-msg {
+    color: #666;
+    font-style: italic;
+    width: 100%;
+    text-align: center;
+}
+
+.inv-slot {
+    min-width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    border: 2px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    transition: transform 0.1s;
+    position: relative;
+}
+
+.inv-slot:active {
+    transform: scale(0.95);
+    cursor: grabbing;
+}
+
+.inv-label {
+    font-size: 0.6rem;
+    background: rgba(0,0,0,0.5);
+    padding: 2px 4px;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+/* GHOST ELEMENT (DRAGGING) */
+.dragging-ghost {
+    position: fixed;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    pointer-events: none; /* Пропускаем события сквозь призрака */
+    z-index: 9999;
+    opacity: 0.8;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 1px 2px #000;
+    border: 2px solid #fff;
 }
