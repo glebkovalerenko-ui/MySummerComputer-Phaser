@@ -4,7 +4,9 @@ import LocalizationManager from '../utils/LocalizationManager.js';
 import DataManager from '../systems/DataManager.js';
 import UIManager from '../ui/UIManager.js';
 import DragManager from '../utils/DragManager.js';
-import PCCase from '../game/PCCase.js'; // Импорт нового класса
+import PCCase from '../game/PCCase.js';
+import InstalledPart from '../game/InstalledPart.js'; // Новый класс
+import VFXManager from '../systems/VFXManager.js';     // Новый менеджер
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
@@ -16,6 +18,7 @@ export default class MainScene extends Phaser.Scene {
         this.inputManager = new InputManager(this);
         this.dataManager = new DataManager(this);
         this.locManager = new LocalizationManager(this, 'ru');
+        this.vfxManager = new VFXManager(this); // Инициализируем VFX
 
         // 2. Инициализация DragManager
         this.dragManager = new DragManager(this);
@@ -45,53 +48,66 @@ export default class MainScene extends Phaser.Scene {
     /**
      * Попытка создать предмет в мире игры.
      * @param {Object} itemData - Данные предмета
-     * @param {number} x - Мировая координата X курсора
-     * @param {number} y - Мировая координата Y курсора
+     * @param {number} worldX - Мировая координата X курсора
+     * @param {number} worldY - Мировая координата Y курсора
      * @returns {boolean} - true если предмет успешно размещен
      */
-    spawnItem(itemData, x, y) {
-        // Спрашиваем у корпуса, можно ли сюда поставить этот предмет
-        const zone = this.pcCase.tryPlaceItem(x, y, itemData.type);
+    spawnItem(itemData, worldX, worldY) {
+        // 1. Проверяем зону (SnapZone)
+        const zone = this.pcCase.tryPlaceItem(worldX, worldY, itemData.type);
 
         if (zone) {
             // УСПЕХ: Зона найдена и свободна
-            
-            // 1. Создаем спрайт
-            const sprite = this.add.sprite(0, 0, 'placeholder_item');
-            sprite.setTint(parseInt(itemData.color.replace('#', '0x'), 16));
-            sprite.setData('itemId', itemData.id);
-            sprite.setData('type', itemData.type);
-
-            // Адаптируем размер спрайта под размер зоны (опционально, для красоты)
-            sprite.setDisplaySize(zone.width * 0.9, zone.height * 0.9);
-
-            // 2. Добавляем спрайт ВНУТРЬ контейнера pcCase
-            // Теперь его координаты должны быть локальными относительно pcCase
-            this.pcCase.add(sprite);
-
-            // 3. Ставим спрайт ровно в центр зоны
-            sprite.x = zone.x;
-            sprite.y = zone.y;
-
-            // 4. Помечаем зону как занятую
             zone.setOccupied(true);
 
-            // 5. Интерактивность (чтобы можно было потом снять)
-            // Пока просто заглушка, логику снятия сделаем позже
-            sprite.setInteractive(); 
+            // 2. Вычисляем координаты
+            // Нам нужно знать, где предмет находится СЕЙЧАС (под мышкой), но в локальных координатах корпуса
+            const startLocal = this.pcCase.pointToContainer({ x: worldX, y: worldY });
+            
+            // 3. Создаем "Установленную деталь" (Контейнер с винтами)
+            const part = new InstalledPart(
+                this, 
+                startLocal.x, 
+                startLocal.y, 
+                itemData, 
+                zone.width, 
+                zone.height
+            );
 
-            // Эффект появления
+            // Добавляем деталь в корпус
+            this.pcCase.add(part);
+            
+            // Убедимся, что деталь отрисовывается поверх зон, но под проводами (если будут)
+            this.pcCase.bringToTop(part);
+
+            // 4. JUICE: Анимация "Snap" (Примагничивание)
             this.tweens.add({
-                targets: sprite,
-                scale: { from: 0, to: sprite.scale }, // scale уже изменен setDisplaySize
-                duration: 200,
-                ease: 'Back.out'
+                targets: part,
+                x: zone.x,
+                y: zone.y,
+                duration: 300,       // Быстро, но заметно
+                ease: 'Back.out',    // Эффект пружины (перелет и возврат)
+                onComplete: () => {
+                    // А. Звук (пока лог)
+                    console.log('CLACK!');
+                    
+                    // Б. Частицы и тряска
+                    // Нужно перевести локальные координаты корпуса в мировые для эмиттера частиц
+                    const worldTarget = this.pcCase.getBounds(); 
+                    // Простой хак координат, так как scale=1. В сложном проекте использовать matrix world transform.
+                    const fxX = this.pcCase.x + zone.x;
+                    const fxY = this.pcCase.y + zone.y;
+                    
+                    this.vfxManager.playSnapEffect(fxX, fxY, itemData.color);
+
+                    // В. Появляются винты (Micro-interaction)
+                    part.showScrews();
+                }
             });
 
-            console.log(`Item ${itemData.id} snapped to ${itemData.type} zone.`);
+            console.log(`Item ${itemData.id} snapping to ${itemData.type} zone.`);
             return true;
         } else {
-            // НЕУДАЧА: Игрок отпустил мышь мимо слота
             console.log('Cannot place item here.');
             return false;
         }
