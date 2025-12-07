@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>My Summer Computer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Контейнер для Phaser Canvas.
+         Phaser автоматически создаст canvas внутри этого div'а. -->
+    <div id="game-container"></div>
+
+    <!-- Слой UI (Overlay).
+         Он лежит поверх канваса. Здесь будут верстаться интерфейсы,
+         инвентарь и HUD средствами HTML/CSS. -->
+    <div id="ui-layer">
+        <!-- Пример контейнера для динамических элементов -->
+        <div id="ui-root"></div>
+    </div>
+
+    <!-- Точка входа приложения -->
+    <script type="module" src="src/main.js"></script>
+
+</body>
+</html>
