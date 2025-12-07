@@ -6,32 +6,27 @@ export default class BootScene extends Phaser.Scene {
     }
 
     preload() {
-        // Генерируем текстуру СИНХРОННО через Graphics
-        // Это гарантирует, что она будет готова до старта следующей сцены
+        // 1. Загрузка JSON-ов с данными и локализацией
+        this.load.json('items_db', 'src/data/items.json');
+        this.load.json('loc_ru', 'src/localization/ru.json');
+        this.load.json('loc_en', 'src/localization/en.json');
+
+        // (Оставим генерацию текстуры из прошлого урока для фона или плейсхолдера)
         this.createProgrammaticTexture();
     }
 
     create() {
-        console.log('BootScene: Texture generated');
+        console.log('BootScene: Data loaded');
         this.scene.start('MainScene');
     }
 
     createProgrammaticTexture() {
-        // Создаем объект графики
         const graphics = this.make.graphics();
-
-        // 1. Рисуем красный фон
-        graphics.fillStyle(0xff0000);
+        graphics.fillStyle(0x444444);
         graphics.fillRect(0, 0, 64, 64);
-
-        // 2. Рисуем белую обводку
-        graphics.lineStyle(4, 0xffffff);
-        graphics.strokeRect(2, 2, 60, 60);
-
-        // 3. Превращаем графику в текстуру, которую можно использовать в спрайтах
-        graphics.generateTexture('red_square', 64, 64);
-
-        // Удаляем объект графики, он больше не нужен
+        graphics.lineStyle(2, 0xffffff);
+        graphics.strokeRect(0, 0, 64, 64);
+        graphics.generateTexture('placeholder_item', 64, 64);
         graphics.destroy();
     }
 }

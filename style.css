@@ -1,16 +1,21 @@
 :root {
-    /* Учитываем "челку" и закругления экрана на iPhone */
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --safe-area-inset-right: env(safe-area-inset-right, 0px);
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-inset-left: env(safe-area-inset-left, 0px);
+    
+    --c-bg: #1e1e1e;
+    --c-card: #2a2a2a;
+    --c-text: #eee;
+    --c-accent: #ff9800;
+    --c-success: #4caf50;
+    --c-disabled: #555;
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    /* Запрещаем выделение текста на мобильных, чтобы не мешало игре */
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
@@ -19,16 +24,12 @@
 body, html {
     width: 100%;
     height: 100%;
-    overflow: hidden; /* Блокируем скролл страницы */
-    background-color: #000; /* Фон подложки (Letterboxing) */
+    overflow: hidden;
+    background-color: #000;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--c-text);
 }
 
-/* 
-   Слой игры (Canvas).
-   Phaser в режиме FIT сам будет центрировать канвас, 
-   но контейнер растягиваем на весь экран.
-*/
 #game-container {
     position: absolute;
     top: 0;
@@ -38,12 +39,6 @@ body, html {
     z-index: 1;
 }
 
-/* 
-   Слой UI.
-   Абсолютно перекрывает игру.
-   Критически важно: pointer-events: none, чтобы клики 
-   проходили сквозь пустые места UI прямо в игру (на Canvas).
-*/
 #ui-layer {
     position: absolute;
     top: 0;
@@ -52,39 +47,135 @@ body, html {
     height: 100%;
     z-index: 10;
     pointer-events: none;
+    padding: var(--safe-area-inset-top) var(--safe-area-inset-right) var(--safe-area-inset-bottom) var(--safe-area-inset-left);
     
-    /* Отступы для безопасности контента на экранах с вырезами */
-    padding-top: var(--safe-area-inset-top);
-    padding-right: var(--safe-area-inset-right);
-    padding-bottom: var(--safe-area-inset-bottom);
-    padding-left: var(--safe-area-inset-left);
+    /* Используем Flex для layout */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
-/* 
-   Класс-утилита для интерактивных элементов UI (кнопки, окна).
-   Возвращает обработку событий мыши/тача.
-*/
+#ui-root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
 .pointer-events-auto {
     pointer-events: auto;
 }
 
-/* Стили для тестовой кнопки */
-.test-button {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    padding: 15px 30px;
-    background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
-    border: 2px solid #fff;
-    border-radius: 12px;
-    color: #333;
-    font-weight: bold;
-    font-size: 1.2rem;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    cursor: pointer;
-    transition: transform 0.1s ease;
+/* HEADER */
+.ui-header {
+    width: 100%;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: flex-end;
+    backdrop-filter: blur(5px);
 }
 
-.test-button:active {
-    transform: scale(0.95);
+.balance-box {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--c-success);
+}
+.balance-box .label {
+    color: #aaa;
+    margin-right: 10px;
+    font-size: 1rem;
+}
+
+/* SHOP CONTAINER */
+.shop-container {
+    background: rgba(30, 30, 30, 0.9);
+    margin: 20px;
+    padding: 20px;
+    border-radius: 16px;
+    max-height: 60vh; /* Чтобы не занимал весь экран */
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border: 1px solid #444;
+}
+
+.shop-container h2 {
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+    border-bottom: 2px solid #444;
+    padding-bottom: 10px;
+}
+
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+/* ITEM CARD */
+.item-card {
+    background: var(--c-card);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.2s;
+}
+
+.item-card:hover {
+    transform: translateY(-2px);
+    background: #333;
+}
+
+.item-icon {
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    opacity: 0.8;
+}
+
+.item-info h3 {
+    font-size: 1rem;
+    margin-bottom: 5px;
+}
+
+.item-type {
+    font-size: 0.8rem;
+    color: #888;
+    background: #222;
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* BUTTONS */
+button {
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    width: 100%;
+    margin-top: auto; /* Прижимает кнопку к низу карточки */
+}
+
+.btn-buy {
+    background: var(--c-accent);
+    color: #000;
+}
+.btn-buy:hover {
+    filter: brightness(1.1);
+}
+.btn-buy:active {
+    transform: scale(0.98);
+}
+
+.btn-owned {
+    background: transparent;
+    color: var(--c-disabled);
+    border: 1px solid var(--c-disabled);
+    cursor: default;
 }

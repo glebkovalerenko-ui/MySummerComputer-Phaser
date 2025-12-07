@@ -1,0 +1,14 @@
+{
+    "UI_SHOP_TITLE": "Components",
+    "UI_INVENTORY_TITLE": "Inventory",
+    "UI_BALANCE": "Balance",
+    "UI_BTN_BUY": "Buy",
+    "UI_BTN_OWNED": "Owned",
+    "UI_NO_FUNDS": "No Funds",
+
+    "ITEM_CASE_OLD": "Old Case",
+    "ITEM_CPU_INTEL": "Intel Core i3",
+    "ITEM_GPU_GTX": "GeForce GTX 1050",
+    "ITEM_RAM_8GB": "Kingston 8GB",
+    "ITEM_HDD_500": "WD Blue 500GB"
+}

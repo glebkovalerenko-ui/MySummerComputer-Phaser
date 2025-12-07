@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
 import InputManager from '../utils/InputManager.js';
+import LocalizationManager from '../utils/LocalizationManager.js';
+import DataManager from '../systems/DataManager.js';
+import UIManager from '../ui/UIManager.js';
+import GameStore from '../state/GameStore.js';
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
@@ -7,82 +11,44 @@ export default class MainScene extends Phaser.Scene {
     }
 
     create() {
-        // 1. Инициализация InputManager
+        // 1. Инициализация систем
+        // ВАЖНО: Порядок инициализации имеет значение
         this.inputManager = new InputManager(this);
-
-        // 2. Создаем игровой объект (Спрайт) по центру экрана
-        // Используем текстуру 'red_square', созданную в BootScene
-        const centerX = this.cameras.main.width / 2;
-        const centerY = this.cameras.main.height / 2;
         
-        this.playerSprite = this.add.sprite(centerX, centerY, 'red_square');
-        this.playerSprite.setInteractive(); // Делаем спрайт интерактивным внутри Phaser
+        // DataManager берет загруженный items_db из кэша
+        this.dataManager = new DataManager(this);
+        
+        // LocalizationManager берет loc_ru из кэша
+        this.locManager = new LocalizationManager(this, 'ru');
 
-        // 3. Добавляем HTML UI кнопку
-        this.createUiOverlay();
+        // 2. Инициализация UI
+        // Передаем менеджера данных и локализации в UI
+        this.uiManager = new UIManager(this.dataManager, this.locManager);
 
-        // 4. (Опционально) Пример использования InputManager для клика по HTML
-        // Добавляем слушатель на весь документ, чтобы проверить конвертацию координат
-        document.addEventListener('mousedown', (e) => {
-            // Для теста выводим в консоль, где это место в мире Phaser
-            const worldPoint = this.inputManager.getPhaserCoordinates(e, this.cameras.main);
-            // console.log(`DOM Click -> World Coords: x=${worldPoint.x}, y=${worldPoint.y}`);
+        // 3. Немного визуала в Phaser для фона (чтобы не было скучно)
+        this.createBackground();
+        
+        console.log('MainScene: Systems ready');
+    }
+
+    createBackground() {
+        const cx = this.cameras.main.width / 2;
+        const cy = this.cameras.main.height / 2;
+        
+        this.add.text(cx, cy - 100, 'GAME WORLD', { 
+            fontSize: '32px', 
+            color: '#333' 
+        }).setOrigin(0.5);
+
+        // Пример взаимодействия: клик по миру не должен блокироваться UI
+        this.input.on('pointerdown', () => {
+            console.log('Clicked on Phaser World');
         });
     }
 
-    /**
-     * Создает HTML элементы интерфейса поверх канваса.
-     * В реальном проекте лучше использовать UI-фреймворк (Vue/React/Svelte)
-     * или шаблонизатор, но здесь делаем на чистом JS.
-     */
-    createUiOverlay() {
-        // Находим слой UI в DOM
-        const uiLayer = document.getElementById('ui-layer');
-        if (!uiLayer) return;
-
-        // Создаем кнопку
-        const btn = document.createElement('button');
-        btn.innerText = 'Тест UI: Вращать';
-        btn.className = 'test-button pointer-events-auto'; // Добавляем класс для включения кликов
-
-        // Обработчик клика по HTML кнопке
-        btn.onclick = (e) => {
-            // Предотвращаем всплытие, хотя pointer-events на слое UI это и так решают
-            e.stopPropagation(); 
-            this.handleUiButtonClick();
-        };
-
-        // Добавляем кнопку в DOM
-        uiLayer.appendChild(btn);
-
-        // Сохраняем ссылку для удаления при выключении сцены
-        this.uiButton = btn;
-    }
-
-    /**
-     * Логика, которая выполняется при нажатии на HTML кнопку.
-     */
-    handleUiButtonClick() {
-        // Вращаем спрайт на 45 градусов
-        this.playerSprite.angle += 45;
-
-        // Добавляем небольшую анимацию твина для плавности
-        this.tweens.add({
-            targets: this.playerSprite,
-            scaleX: 1.2,
-            scaleY: 1.2,
-            duration: 100,
-            yoyo: true,
-            ease: 'Sine.easeInOut'
-        });
-    }
-
-    /**
-     * Очистка при смене сцены (важно для SPA приложений)
-     */
     shutdown() {
-        if (this.uiButton) {
-            this.uiButton.remove();
+        if (this.uiManager) {
+            this.uiManager.destroy();
         }
     }
 }

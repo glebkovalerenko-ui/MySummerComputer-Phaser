@@ -1,0 +1,14 @@
+{
+    "UI_SHOP_TITLE": "Комплектующие",
+    "UI_INVENTORY_TITLE": "Инвентарь",
+    "UI_BALANCE": "Баланс",
+    "UI_BTN_BUY": "Купить",
+    "UI_BTN_OWNED": "Куплено",
+    "UI_NO_FUNDS": "Нет денег",
+    
+    "ITEM_CASE_OLD": "Старый Корпус",
+    "ITEM_CPU_INTEL": "Intel Core i3",
+    "ITEM_GPU_GTX": "GeForce GTX 1050",
+    "ITEM_RAM_8GB": "Kingston 8GB",
+    "ITEM_HDD_500": "WD Blue 500GB"
+}

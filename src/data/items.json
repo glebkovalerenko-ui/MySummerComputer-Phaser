@@ -1,0 +1,42 @@
+[
+    {
+        "id": "case_01",
+        "nameKey": "ITEM_CASE_OLD",
+        "type": "CASE",
+        "price": 100,
+        "color": "#8d6e63",
+        "socket": null
+    },
+    {
+        "id": "cpu_01",
+        "nameKey": "ITEM_CPU_INTEL",
+        "type": "CPU",
+        "price": 150,
+        "color": "#2196f3",
+        "socket": "LGA1151"
+    },
+    {
+        "id": "gpu_01",
+        "nameKey": "ITEM_GPU_GTX",
+        "type": "GPU",
+        "price": 300,
+        "color": "#4caf50",
+        "socket": "PCI-E"
+    },
+    {
+        "id": "ram_01",
+        "nameKey": "ITEM_RAM_8GB",
+        "type": "RAM",
+        "price": 80,
+        "color": "#ffeb3b",
+        "socket": "DDR4"
+    },
+    {
+        "id": "hdd_01",
+        "nameKey": "ITEM_HDD_500",
+        "type": "HDD",
+        "price": 50,
+        "color": "#607d8b",
+        "socket": "SATA"
+    }
+]
