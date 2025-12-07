@@ -6,43 +6,32 @@ export default class BootScene extends Phaser.Scene {
     }
 
     preload() {
-        // Здесь обычно загружаются ассеты.
-        // Для задания мы сгенерируем текстуру программно.
+        // Генерируем текстуру СИНХРОННО через Graphics
+        // Это гарантирует, что она будет готова до старта следующей сцены
         this.createProgrammaticTexture();
     }
 
     create() {
-        console.log('BootScene: Assets loaded');
-        // Переходим к основной сцене
+        console.log('BootScene: Texture generated');
         this.scene.start('MainScene');
     }
 
-    /**
-     * Создает красный квадрат 64x64 и сохраняет его в TextureManager.
-     * Это позволяет не зависеть от внешних файлов изображений на этапе прототипа.
-     */
     createProgrammaticTexture() {
-        // Создаем временный canvas элемент
-        const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 64;
-        const ctx = canvas.getContext('2d');
+        // Создаем объект графики
+        const graphics = this.make.graphics();
 
-        // Рисуем красный квадрат с обводкой
-        ctx.fillStyle = '#ff0000';
-        ctx.fillRect(0, 0, 64, 64);
-        
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(2, 2, 60, 60);
+        // 1. Рисуем красный фон
+        graphics.fillStyle(0xff0000);
+        graphics.fillRect(0, 0, 64, 64);
 
-        // Генерируем Base64 строку
-        const dataURL = canvas.toDataURL();
+        // 2. Рисуем белую обводку
+        graphics.lineStyle(4, 0xffffff);
+        graphics.strokeRect(2, 2, 60, 60);
 
-        // Загружаем в Phaser
-        this.textures.addBase64('red_square', dataURL);
-        
-        // Событие добавления текстуры асинхронно, но Base64 обычно очень быстрый.
-        // В реальном проекте лучше использовать this.load.image с data URI в preload.
+        // 3. Превращаем графику в текстуру, которую можно использовать в спрайтах
+        graphics.generateTexture('red_square', 64, 64);
+
+        // Удаляем объект графики, он больше не нужен
+        graphics.destroy();
     }
 }
