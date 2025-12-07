@@ -110,11 +110,12 @@ export default class DragManager {
             
             // Пробуем заспавнить предмет
             // spawnItem теперь возвращает boolean (успех/неудача)
+            // ВАЖНО: MainScene.spawnItem сам обновляет GameStore.installPart при успехе.
             const success = this.scene.spawnItem(this.dragItem, worldPoint.x, worldPoint.y);
 
             if (success) {
-                // Если успешно установили в слот - убираем из инвентаря
-                GameStore.markAsPlaced(this.dragItem.id);
+                // Успех. Store обновлен в MainScene.
+                // Ничего дополнительно вызывать не нужно.
             } else {
                 // Если не попали в слот - отменяем
                 this.dropCancel();
