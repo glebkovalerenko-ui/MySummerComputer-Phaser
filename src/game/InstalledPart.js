@@ -1,8 +1,5 @@
 import Phaser from 'phaser';
 
-/**
- * Представляет деталь, установленную в корпус.
- */
 export default class InstalledPart extends Phaser.GameObjects.Container {
     constructor(scene, x, y, itemData, width, height) {
         super(scene, x, y);
@@ -68,6 +65,11 @@ export default class InstalledPart extends Phaser.GameObjects.Container {
         const screwObj = this.screws[index];
         if (screwObj.isTight) return;
 
+        // AUDIO: Вызываем звук через сцену
+        if (this.scene.audioManager) {
+            this.scene.audioManager.playScrew();
+        }
+
         this.scene.tweens.add({
             targets: screwSprite,
             angle: 360,
@@ -106,10 +108,6 @@ export default class InstalledPart extends Phaser.GameObjects.Container {
         }
     }
 
-    /**
-     * Моментальная установка (для загрузки сохранений).
-     * Делает винты видимыми и закрученными без анимаций.
-     */
     instantInstall() {
         this.isFullyInstalled = true;
         

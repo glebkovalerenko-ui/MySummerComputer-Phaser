@@ -10,6 +10,7 @@ import VFXManager from '../systems/VFXManager.js';
 import GameStore from '../state/GameStore.js';
 import PCLogic from '../systems/PCLogic.js';
 import OrderManager from '../systems/OrderManager.js';
+import AudioManager from '../systems/AudioManager.js'; // NEW
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
@@ -26,13 +27,14 @@ export default class MainScene extends Phaser.Scene {
         this.locManager = new LocalizationManager(this, 'ru');
         this.vfxManager = new VFXManager(this);
         this.orderManager = new OrderManager(this.dataManager);
+        this.audioManager = new AudioManager(this); // NEW: Init Audio
 
         // Генерация заказа, если его нет
         this.orderManager.generateNewOrderIfNeeded();
 
         this.dragManager = new DragManager(this);
-        // Передаем this (сцену) в UIManager, чтобы он мог вызывать методы сцены (sellPC)
-        this.uiManager = new UIManager(this.dataManager, this.locManager, this.dragManager, this);
+        // Передаем audioManager в UI
+        this.uiManager = new UIManager(this.dataManager, this.locManager, this.dragManager, this, this.audioManager);
 
         // 3. Окружение
         this.createEnvironment();
@@ -86,6 +88,7 @@ export default class MainScene extends Phaser.Scene {
     placePartEntity(itemData, zone, isRestoring) {
         zone.setOccupied(true);
 
+        // Передаем audioManager в InstalledPart, чтобы винты могли звучать
         const part = new InstalledPart(
             this,
             zone.x,
@@ -114,6 +117,7 @@ export default class MainScene extends Phaser.Scene {
                     const fxX = this.pcCase.x + zone.x;
                     const fxY = this.pcCase.y + zone.y;
                     this.vfxManager.playSnapEffect(fxX, fxY, itemData.color);
+                    this.audioManager.playSnap(); // AUDIO: Звук установки
                     part.showScrews();
                 }
             });
@@ -121,6 +125,8 @@ export default class MainScene extends Phaser.Scene {
     }
 
     handlePowerOn() {
+        this.audioManager.playUiClick(); // Звук нажатия кнопки
+
         // Запуск логики проверки
         const result = PCLogic.checkBuild(this.pcCase);
         
@@ -132,6 +138,7 @@ export default class MainScene extends Phaser.Scene {
             const orderCheck = this.orderManager.checkOrderCompletion(installedParts);
             
             if (orderCheck.success) {
+                this.audioManager.playBootSuccess(); // AUDIO: Успех
                 this.uiManager.showMonitorOverlay(
                     true, 
                     `BIOS LOADED... OK\nCOMPONENTS DETECTED: ${installedParts.length}\nORDER REQUIREMENTS MET.`,
@@ -139,6 +146,7 @@ export default class MainScene extends Phaser.Scene {
                 );
                 this.vfxManager.playSnapEffect(this.pcCase.x, this.pcCase.y, '#00ff00');
             } else {
+                this.audioManager.playBootError(); // AUDIO: Ошибка (не тот заказ)
                  this.uiManager.showMonitorOverlay(
                     false, 
                     `BIOS LOADED... OK\nBUT ORDER REJECTED:\n${orderCheck.error}`
@@ -146,6 +154,7 @@ export default class MainScene extends Phaser.Scene {
             }
 
         } else {
+            this.audioManager.playBootError(); // AUDIO: Ошибка сборки
             this.uiManager.showMonitorOverlay(
                 false, 
                 `BOOT ERROR:\n${result.error}`
@@ -154,14 +163,11 @@ export default class MainScene extends Phaser.Scene {
         }
     }
 
-    /**
-     * Вызывается из UI при нажатии кнопки продажи
-     */
     sellPC(reward) {
         console.log('Selling PC...');
+        this.audioManager.playCash(); // AUDIO: Деньги
         
-        // 1. Очистить сцену (визуально)
-        // Важно: перебираем копию списка, так как удаление меняет длину массива
+        // 1. Очистить сцену
         const children = [...this.pcCase.list];
         children.forEach(child => {
             if (child instanceof InstalledPart) {
@@ -178,7 +184,7 @@ export default class MainScene extends Phaser.Scene {
         this.orderManager.completeCurrentOrder();
 
         // 3. VFX
-        this.vfxManager.playSnapEffect(this.pcCase.x, this.pcCase.y, '#ffd700'); // Gold splash
+        this.vfxManager.playSnapEffect(this.pcCase.x, this.pcCase.y, '#ffd700');
     }
 
     shutdown() {

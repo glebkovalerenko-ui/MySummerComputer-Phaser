@@ -1,11 +1,13 @@
 import GameStore from '../state/GameStore.js';
 
 export default class UIManager {
-    constructor(dataManager, locManager, dragManager, mainScene) {
+    // Добавили audioManager в аргументы
+    constructor(dataManager, locManager, dragManager, mainScene, audioManager) {
         this.dataManager = dataManager;
         this.loc = locManager;
         this.dragManager = dragManager;
-        this.mainScene = mainScene; // Ссылка на сцену для колбэков
+        this.mainScene = mainScene;
+        this.audioManager = audioManager; // Сохраняем ссылку
         
         this.root = document.getElementById('ui-root');
         this.isShopOpen = false;
@@ -19,23 +21,18 @@ export default class UIManager {
 
     initStructure() {
         this.root.innerHTML = '';
-
-        // 1. Хедер (Заказ + Баланс + Кнопка Магазина)
         this.headerEl = document.createElement('div');
         this.headerEl.className = 'ui-header pointer-events-auto';
         this.root.appendChild(this.headerEl);
 
-        // 2. Магазин (скрыт по умолчанию)
         this.shopEl = document.createElement('div');
         this.shopEl.className = 'shop-container pointer-events-auto hidden';
         this.root.appendChild(this.shopEl);
 
-        // 3. Инвентарь
         this.inventoryEl = document.createElement('div');
         this.inventoryEl.className = 'inventory-bar pointer-events-auto';
         this.root.appendChild(this.inventoryEl);
 
-        // 4. Оверлей монитора (BIOS) - скрыт по умолчанию
         this.monitorOverlayEl = document.createElement('div');
         this.monitorOverlayEl.className = 'monitor-overlay hidden pointer-events-auto';
         this.root.appendChild(this.monitorOverlayEl);
@@ -51,6 +48,13 @@ export default class UIManager {
         this.renderHeader();
         this.renderShop();
         this.renderInventory();
+    }
+
+    // Хелпер для добавления звука к кнопке
+    addAudioToBtn(btn) {
+        if (!this.audioManager) return;
+        btn.addEventListener('mouseenter', () => this.audioManager.playUiHover());
+        btn.addEventListener('mousedown', () => this.audioManager.playUiClick());
     }
 
     renderHeader() {
@@ -76,8 +80,9 @@ export default class UIManager {
             </div>
         `;
 
-        // Биндим клик
-        this.headerEl.querySelector('#btn-shop-toggle').onclick = () => this.toggleShop();
+        const btn = this.headerEl.querySelector('#btn-shop-toggle');
+        btn.onclick = () => this.toggleShop();
+        this.addAudioToBtn(btn); // AUDIO
     }
 
     toggleShop() {
@@ -87,7 +92,7 @@ export default class UIManager {
         } else {
             this.shopEl.classList.add('hidden');
         }
-        this.renderHeader(); // Обновить текст кнопки
+        this.renderHeader();
     }
 
     renderShop() {
@@ -128,10 +133,10 @@ export default class UIManager {
         html += `</div>`;
         this.shopEl.innerHTML = html;
 
-        // Кнопка закрытия внутри магазина
-        this.shopEl.querySelector('.btn-close-shop').onclick = () => this.toggleShop();
+        const closeBtn = this.shopEl.querySelector('.btn-close-shop');
+        closeBtn.onclick = () => this.toggleShop();
+        this.addAudioToBtn(closeBtn); // AUDIO
 
-        // Кнопки покупки
         const buttons = this.shopEl.querySelectorAll('.btn-buy');
         buttons.forEach(btn => {
             if (!btn.disabled) {
@@ -141,6 +146,7 @@ export default class UIManager {
                     const item = this.dataManager.getItemById(id);
                     GameStore.buyItem(item);
                 };
+                this.addAudioToBtn(btn); // AUDIO
             }
         });
     }
@@ -163,12 +169,14 @@ export default class UIManager {
 
         this.inventoryEl.innerHTML = html;
 
-        // DragStart
         const slots = this.inventoryEl.querySelectorAll('.inv-slot');
         slots.forEach(slot => {
+            // Hover sound for slots
+            slot.addEventListener('mouseenter', () => this.audioManager?.playUiHover());
+
             const onStart = (e) => {
-                // Нельзя тащить, если магазин открыт (во избежание багов)
                 if (this.isShopOpen) return; 
+                this.audioManager?.playUiClick(); // Click on drag start
 
                 const id = slot.getAttribute('data-id');
                 const item = this.dataManager.getItemById(id);
@@ -179,9 +187,6 @@ export default class UIManager {
         });
     }
 
-    /**
-     * Показывает "BIOS" экран с результатами сборки
-     */
     showMonitorOverlay(success, message, reward = 0) {
         this.monitorOverlayEl.classList.remove('hidden');
         
@@ -205,7 +210,10 @@ export default class UIManager {
         this.monitorOverlayEl.innerHTML = content;
 
         const btnClose = this.monitorOverlayEl.querySelector('#btn-monitor-close');
-        if (btnClose) btnClose.onclick = () => this.hideMonitorOverlay();
+        if (btnClose) {
+            btnClose.onclick = () => this.hideMonitorOverlay();
+            this.addAudioToBtn(btnClose); // AUDIO
+        }
 
         const btnSell = this.monitorOverlayEl.querySelector('#btn-sell-pc');
         if (btnSell) {
@@ -213,6 +221,7 @@ export default class UIManager {
                 this.mainScene.sellPC(reward);
                 this.hideMonitorOverlay();
             };
+            this.addAudioToBtn(btnSell); // AUDIO
         }
     }
 
@@ -221,6 +230,8 @@ export default class UIManager {
     }
 
     showError(msgKey) {
+        // Простой alert, но можно добавить звук ошибки
+        this.audioManager?.playBootError();
         alert(this.loc.t(msgKey));
     }
 
