@@ -3,7 +3,8 @@ import InputManager from '../utils/InputManager.js';
 import LocalizationManager from '../utils/LocalizationManager.js';
 import DataManager from '../systems/DataManager.js';
 import UIManager from '../ui/UIManager.js';
-import DragManager from '../utils/DragManager.js'; // Импорт
+import DragManager from '../utils/DragManager.js';
+import PCCase from '../game/PCCase.js'; // Импорт нового класса
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
@@ -17,70 +18,83 @@ export default class MainScene extends Phaser.Scene {
         this.locManager = new LocalizationManager(this, 'ru');
 
         // 2. Инициализация DragManager
-        // Передаем текущую сцену, чтобы DragManager мог вызывать spawnItem
         this.dragManager = new DragManager(this);
 
         // 3. Инициализация UI
-        // Теперь передаем и dragManager
         this.uiManager = new UIManager(this.dataManager, this.locManager, this.dragManager);
 
-        // 4. Визуал мира
-        this.createBackground();
+        // 4. Создание окружения (Стол и ПК)
+        this.createEnvironment();
         
         console.log('MainScene: Ready');
     }
 
-    createBackground() {
+    createEnvironment() {
         const cx = this.cameras.main.width / 2;
         const cy = this.cameras.main.height / 2;
-        
-        this.add.text(cx, cy - 200, 'WORKBENCH AREA', { 
-            fontSize: '32px', 
-            color: '#444' 
+
+        this.add.text(cx, 30, 'WORKBENCH', { 
+            fontSize: '24px', 
+            color: '#888' 
         }).setOrigin(0.5);
 
-        // Границы стола (просто визуально)
-        const graphics = this.add.graphics();
-        graphics.lineStyle(4, 0x666666);
-        graphics.strokeRect(100, 100, 1080, 520);
+        // Создаем корпус ПК по центру экрана
+        this.pcCase = new PCCase(this, cx, cy);
     }
 
     /**
-     * Создание предмета в мире игры
+     * Попытка создать предмет в мире игры.
      * @param {Object} itemData - Данные предмета
-     * @param {number} x - Мировая координата X
-     * @param {number} y - Мировая координата Y
+     * @param {number} x - Мировая координата X курсора
+     * @param {number} y - Мировая координата Y курсора
+     * @returns {boolean} - true если предмет успешно размещен
      */
     spawnItem(itemData, x, y) {
-        // Создаем контейнер или спрайт.
-        // Пока используем заглушку 'placeholder_item' из BootScene, подкрашенную в цвет предмета.
-        const sprite = this.add.sprite(x, y, 'placeholder_item');
-        
-        // Красим спрайт в цвет предмета
-        sprite.setTint(parseInt(itemData.color.replace('#', '0x'), 16));
-        
-        // Сохраняем ID данных внутри объекта для логики игры
-        sprite.setData('itemId', itemData.id);
-        sprite.setData('type', itemData.type);
+        // Спрашиваем у корпуса, можно ли сюда поставить этот предмет
+        const zone = this.pcCase.tryPlaceItem(x, y, itemData.type);
 
-        // Включаем интерактивность (перетаскивание внутри Phaser)
-        sprite.setInteractive({ draggable: true });
+        if (zone) {
+            // УСПЕХ: Зона найдена и свободна
+            
+            // 1. Создаем спрайт
+            const sprite = this.add.sprite(0, 0, 'placeholder_item');
+            sprite.setTint(parseInt(itemData.color.replace('#', '0x'), 16));
+            sprite.setData('itemId', itemData.id);
+            sprite.setData('type', itemData.type);
 
-        // События перетаскивания внутри мира
-        sprite.on('drag', (pointer, dragX, dragY) => {
-            sprite.x = dragX;
-            sprite.y = dragY;
-        });
+            // Адаптируем размер спрайта под размер зоны (опционально, для красоты)
+            sprite.setDisplaySize(zone.width * 0.9, zone.height * 0.9);
 
-        // Визуальный эффект появления
-        this.tweens.add({
-            targets: sprite,
-            scale: { from: 0, to: 1 },
-            duration: 300,
-            ease: 'Back.out'
-        });
+            // 2. Добавляем спрайт ВНУТРЬ контейнера pcCase
+            // Теперь его координаты должны быть локальными относительно pcCase
+            this.pcCase.add(sprite);
 
-        console.log(`Spawned ${itemData.id} at ${Math.round(x)}, ${Math.round(y)}`);
+            // 3. Ставим спрайт ровно в центр зоны
+            sprite.x = zone.x;
+            sprite.y = zone.y;
+
+            // 4. Помечаем зону как занятую
+            zone.setOccupied(true);
+
+            // 5. Интерактивность (чтобы можно было потом снять)
+            // Пока просто заглушка, логику снятия сделаем позже
+            sprite.setInteractive(); 
+
+            // Эффект появления
+            this.tweens.add({
+                targets: sprite,
+                scale: { from: 0, to: sprite.scale }, // scale уже изменен setDisplaySize
+                duration: 200,
+                ease: 'Back.out'
+            });
+
+            console.log(`Item ${itemData.id} snapped to ${itemData.type} zone.`);
+            return true;
+        } else {
+            // НЕУДАЧА: Игрок отпустил мышь мимо слота
+            console.log('Cannot place item here.');
+            return false;
+        }
     }
 
     shutdown() {
