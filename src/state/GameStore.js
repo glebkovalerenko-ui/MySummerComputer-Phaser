@@ -11,7 +11,8 @@ class GameStore {
         // Дефолтное состояние
         this.money = 1000;
         this.inventory = []; 
-        this.installedParts = []; // Хранит объекты { itemId, type }
+        this.installedParts = []; 
+        this.currentOrder = null; // Текущий активный заказ
 
         this.events = new Phaser.Events.EventEmitter();
 
@@ -24,11 +25,12 @@ class GameStore {
         const state = {
             money: this.money,
             inventory: this.inventory,
-            installedParts: this.installedParts
+            installedParts: this.installedParts,
+            currentOrder: this.currentOrder
         };
         try {
             localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-            console.log('Game Saved:', state);
+            // console.log('Game Saved:', state);
         } catch (e) {
             console.error('Save failed:', e);
         }
@@ -42,6 +44,7 @@ class GameStore {
                 this.money = state.money ?? 1000;
                 this.inventory = state.inventory || [];
                 this.installedParts = state.installedParts || [];
+                this.currentOrder = state.currentOrder || null;
                 
                 console.log('Game Loaded:', state);
                 this.emitChange();
@@ -59,13 +62,8 @@ class GameStore {
         return this.money;
     }
 
-    /**
-     * Возвращает предметы, которые куплены, но еще НЕ установлены в ПК.
-     */
     getAvailableInventory() {
-        // Собираем ID всех установленных предметов
         const installedIds = this.installedParts.map(p => p.itemId);
-        // Фильтруем инвентарь
         return this.inventory.filter(id => !installedIds.includes(id));
     }
 
@@ -77,6 +75,10 @@ class GameStore {
         return this.installedParts;
     }
 
+    getCurrentOrder() {
+        return this.currentOrder;
+    }
+
     // --- ACTIONS ---
 
     buyItem(item) {
@@ -85,7 +87,7 @@ class GameStore {
         if (this.money >= item.price) {
             this.money -= item.price;
             this.inventory.push(item.id);
-            this.saveGame(); // Автосохранение при покупке
+            this.saveGame();
             this.emitChange();
             return true;
         } else {
@@ -94,23 +96,36 @@ class GameStore {
         }
     }
 
-    /**
-     * Регистрирует установку детали в корпус
-     */
     installPart(itemId, type) {
-        // Проверка на дубликаты (на всякий случай)
         if (!this.installedParts.find(p => p.itemId === itemId)) {
             this.installedParts.push({ itemId, type });
-            this.saveGame(); // Автосохранение
+            this.saveGame();
             this.emitChange();
         }
     }
 
+    addMoney(amount) {
+        this.money += amount;
+        this.saveGame();
+        this.emitChange();
+    }
+
     /**
-     * (Опционально) Если мы реализуем снятие детали
+     * Очищает список установленных деталей (продажа ПК).
+     * Детали удаляются из инвентаря навсегда (считаются проданными).
      */
-    removePart(itemId) {
-        this.installedParts = this.installedParts.filter(p => p.itemId !== itemId);
+    clearInstalledParts() {
+        // Удаляем установленные предметы из инвентаря глобально
+        const installedIds = this.installedParts.map(p => p.itemId);
+        this.inventory = this.inventory.filter(id => !installedIds.includes(id));
+        
+        this.installedParts = [];
+        this.saveGame();
+        this.emitChange();
+    }
+
+    setOrder(order) {
+        this.currentOrder = order;
         this.saveGame();
         this.emitChange();
     }
@@ -119,7 +134,8 @@ class GameStore {
         this.events.emit('stateChanged', {
             money: this.money,
             inventory: this.inventory,
-            installedParts: this.installedParts
+            installedParts: this.installedParts,
+            currentOrder: this.currentOrder
         });
     }
 }

@@ -9,6 +9,7 @@ import InstalledPart from '../game/InstalledPart.js';
 import VFXManager from '../systems/VFXManager.js';
 import GameStore from '../state/GameStore.js';
 import PCLogic from '../systems/PCLogic.js';
+import OrderManager from '../systems/OrderManager.js';
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
@@ -22,19 +23,24 @@ export default class MainScene extends Phaser.Scene {
         // 2. Инициализация систем
         this.inputManager = new InputManager(this);
         this.dataManager = new DataManager(this);
-        this.locManager = new LocalizationManager(this, 'ru'); // Можно сохранять язык тоже в Store
+        this.locManager = new LocalizationManager(this, 'ru');
         this.vfxManager = new VFXManager(this);
+        this.orderManager = new OrderManager(this.dataManager);
+
+        // Генерация заказа, если его нет
+        this.orderManager.generateNewOrderIfNeeded();
 
         this.dragManager = new DragManager(this);
-        this.uiManager = new UIManager(this.dataManager, this.locManager, this.dragManager);
+        // Передаем this (сцену) в UIManager, чтобы он мог вызывать методы сцены (sellPC)
+        this.uiManager = new UIManager(this.dataManager, this.locManager, this.dragManager, this);
 
         // 3. Окружение
         this.createEnvironment();
         
-        // 4. Восстановление состояния сцены (визуализация установленных деталей)
+        // 4. Восстановление состояния сцены
         this.restoreState();
 
-        // 5. Подписка на событие кнопки Power (из PCCase)
+        // 5. Подписка на событие кнопки Power
         this.events.on('pc-power-on', this.handlePowerOn, this);
 
         console.log('MainScene: Ready');
@@ -50,62 +56,36 @@ export default class MainScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         this.pcCase = new PCCase(this, cx, cy);
-        
-        // Текст для вывода статуса (BIOS)
-        this.monitorText = this.add.text(cx, cy - 300, '', {
-            fontFamily: 'monospace',
-            fontSize: '20px',
-            backgroundColor: '#000000',
-            padding: { x: 10, y: 10 }
-        }).setOrigin(0.5).setAlpha(0);
     }
 
-    /**
-     * Восстанавливает детали из Store в PCCase
-     */
     restoreState() {
         const installedParts = GameStore.getInstalledParts();
         
         installedParts.forEach(entry => {
             const item = this.dataManager.getItemById(entry.itemId);
             if (item) {
-                // Ищем зону для этого типа напрямую
                 const zone = this.pcCase.getZoneByType(item.type);
                 if (zone) {
-                    this.placePartEntity(item, zone, true); // true = immediate install
+                    this.placePartEntity(item, zone, true);
                 }
             }
         });
     }
 
-    /**
-     * Логика Drag&Drop спавна
-     */
     spawnItem(itemData, worldX, worldY) {
         const zone = this.pcCase.tryPlaceItem(worldX, worldY, itemData.type);
 
         if (zone) {
-            // Установка через геймплей
             this.placePartEntity(itemData, zone, false);
-            
-            // Сохраняем изменение в Store
             GameStore.installPart(itemData.id, itemData.type);
-            
             return true;
         }
         return false;
     }
 
-    /**
-     * Внутренний метод создания сущности детали
-     * @param {Object} itemData 
-     * @param {SnapZone} zone 
-     * @param {boolean} isRestoring - Если true, ставит мгновенно (для Save/Load)
-     */
     placePartEntity(itemData, zone, isRestoring) {
         zone.setOccupied(true);
 
-        // Создаем деталь локально в координатах зоны (зона уже локальна для pcCase)
         const part = new InstalledPart(
             this,
             zone.x,
@@ -119,12 +99,8 @@ export default class MainScene extends Phaser.Scene {
         this.pcCase.bringToTop(part);
 
         if (isRestoring) {
-            // Мгновенная установка (Load)
             part.instantInstall();
         } else {
-            // Анимация установки (Gameplay)
-            // Начальная позиция (эффект прилета)
-            // Слегка сместим, чтобы был эффект "вставки"
             part.y -= 20; 
             part.alpha = 0;
 
@@ -149,27 +125,60 @@ export default class MainScene extends Phaser.Scene {
         const result = PCLogic.checkBuild(this.pcCase);
         
         if (result.success) {
-            this.showMonitorMessage('BIOS LOADED\nSYSTEM OK\n\nReady to boot OS...', 0x00ff00);
-            this.vfxManager.playSnapEffect(this.pcCase.x, this.pcCase.y, '#00ff00');
+            // Собираем установленные детали для проверки заказа
+            const installedParts = this.pcCase.list
+                .filter(child => child instanceof InstalledPart);
+            
+            const orderCheck = this.orderManager.checkOrderCompletion(installedParts);
+            
+            if (orderCheck.success) {
+                this.uiManager.showMonitorOverlay(
+                    true, 
+                    `BIOS LOADED... OK\nCOMPONENTS DETECTED: ${installedParts.length}\nORDER REQUIREMENTS MET.`,
+                    orderCheck.reward
+                );
+                this.vfxManager.playSnapEffect(this.pcCase.x, this.pcCase.y, '#00ff00');
+            } else {
+                 this.uiManager.showMonitorOverlay(
+                    false, 
+                    `BIOS LOADED... OK\nBUT ORDER REJECTED:\n${orderCheck.error}`
+                );
+            }
+
         } else {
-            this.showMonitorMessage(`BOOT ERROR:\n${result.error}`, 0xff0000);
+            this.uiManager.showMonitorOverlay(
+                false, 
+                `BOOT ERROR:\n${result.error}`
+            );
             this.cameras.main.shake(200, 0.01);
         }
     }
 
-    showMonitorMessage(text, color) {
-        this.monitorText.setText(text);
-        this.monitorText.setColor(typeof color === 'number' ? '#' + color.toString(16) : color);
-        this.monitorText.setAlpha(1);
+    /**
+     * Вызывается из UI при нажатии кнопки продажи
+     */
+    sellPC(reward) {
+        console.log('Selling PC...');
         
-        // Скрыть через 3 секунды
-        this.time.delayedCall(3000, () => {
-            this.tweens.add({
-                targets: this.monitorText,
-                alpha: 0,
-                duration: 1000
-            });
+        // 1. Очистить сцену (визуально)
+        // Важно: перебираем копию списка, так как удаление меняет длину массива
+        const children = [...this.pcCase.list];
+        children.forEach(child => {
+            if (child instanceof InstalledPart) {
+                child.destroy();
+            }
         });
+
+        // Сбрасываем занятость зон
+        this.pcCase.zones.forEach(zone => zone.setOccupied(false));
+
+        // 2. Логика данных
+        GameStore.addMoney(reward);
+        GameStore.clearInstalledParts();
+        this.orderManager.completeCurrentOrder();
+
+        // 3. VFX
+        this.vfxManager.playSnapEffect(this.pcCase.x, this.pcCase.y, '#ffd700'); // Gold splash
     }
 
     shutdown() {
