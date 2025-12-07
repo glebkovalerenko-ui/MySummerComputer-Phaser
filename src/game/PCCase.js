@@ -5,8 +5,7 @@ export default class PCCase extends Phaser.GameObjects.Container {
     constructor(scene, x, y) {
         super(scene, x, y);
 
-        // 1. Создаем фон (Корпус / Материнская плата)
-        // Размеры условные, под 1280x720
+        // 1. Фон (Корпус)
         const bgWidth = 600;
         const bgHeight = 500;
         
@@ -14,73 +13,84 @@ export default class PCCase extends Phaser.GameObjects.Container {
         bg.setStrokeStyle(4, 0x444444);
         this.add(bg);
 
-        // Декоративные элементы (слоты PCI, сокет и т.д.)
+        // Материнская плата
         const motherboard = scene.add.rectangle(0, 0, 560, 460, 0x333333);
         this.add(motherboard);
 
-        // 2. Инициализируем зоны
+        // 2. Зоны
         this.zones = [];
-
-        // CPU (Сверху по центру)
         this.addZone(0, -120, 100, 100, 'CPU');
-
-        // RAM (Справа от CPU)
         this.addZone(120, -120, 40, 120, 'RAM');
-
-        // GPU (Снизу, длинный слот PCI-E)
         this.addZone(0, 50, 300, 60, 'GPU');
-
-        // HDD (Внизу справа)
         this.addZone(180, 180, 120, 80, 'HDD');
 
-        // Добавляем этот контейнер на сцену
+        // 3. Кнопка Power
+        this.createPowerButton(scene, bgWidth, bgHeight);
+
         scene.add.existing(this);
     }
 
     addZone(x, y, w, h, type) {
         const zone = new SnapZone(this.scene, x, y, w, h, type);
         this.zones.push(zone);
-        
-        // Важно: Добавляем и саму зону, и её графику в контейнер
         this.add(zone.graphics);
         this.add(zone);
     }
 
+    createPowerButton(scene, w, h) {
+        // Кнопка в углу корпуса
+        const btnX = w/2 - 40;
+        const btnY = -h/2 + 40; // Сверху справа
+
+        const btnBg = scene.add.circle(btnX, btnY, 20, 0x111111);
+        const btnIcon = scene.add.text(btnX, btnY, '⏻', { fontSize: '20px', color: '#ff5555' }).setOrigin(0.5);
+
+        // Группируем для удобства
+        this.powerBtn = scene.add.container(0, 0, [btnBg, btnIcon]);
+        this.add(this.powerBtn);
+
+        // Интерактив
+        btnBg.setInteractive({ cursor: 'pointer' });
+        
+        // Событие нажатия прокидываем в сцену
+        btnBg.on('pointerdown', () => {
+            this.scene.events.emit('pc-power-on');
+            
+            // Анимация нажатия
+            scene.tweens.add({
+                targets: this.powerBtn,
+                scale: 0.9,
+                yoyo: true,
+                duration: 50
+            });
+        });
+    }
+
     /**
-     * Пытается найти подходящую зону для координат мыши.
-     * @param {number} worldX - Мировая координата X
-     * @param {number} worldY - Мировая координата Y
-     * @param {string} itemType - Тип предмета
-     * @returns {SnapZone|null} Возвращает зону, если успех, иначе null
+     * Поиск зоны по типу (нужен для загрузки сохранения)
      */
+    getZoneByType(type) {
+        return this.zones.find(z => z.acceptedType === type);
+    }
+
     tryPlaceItem(worldX, worldY, itemType) {
-        // 1. Конвертируем мировые координаты в локальные координаты контейнера
-        // Это критически важно, так как контейнер может быть сдвинут или масштабирован
         const localPoint = this.pointToContainer({ x: worldX, y: worldY });
 
-        // 2. Ищем подходящую зону
         const foundZone = this.zones.find(zone => {
-            // А. Проверка типа
             if (zone.acceptedType !== itemType) return false;
-            
-            // Б. Проверка занятости
             if (zone.isOccupied) return false;
 
-            // В. Проверка попадания точки в прямоугольник зоны
-            // Так как zone.x/y - это центр зоны в локальных координатах контейнера:
             const left = zone.x - zone.width / 2;
             const right = zone.x + zone.width / 2;
             const top = zone.y - zone.height / 2;
             const bottom = zone.y + zone.height / 2;
 
-            const inside = (
+            return (
                 localPoint.x >= left && 
                 localPoint.x <= right &&
                 localPoint.y >= top && 
                 localPoint.y <= bottom
             );
-
-            return inside;
         });
 
         return foundZone || null;

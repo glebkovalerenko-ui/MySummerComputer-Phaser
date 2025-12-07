@@ -2,17 +2,8 @@ import Phaser from 'phaser';
 
 /**
  * Представляет деталь, установленную в корпус.
- * Содержит спрайт самой детали и спрайты винтов крепления.
  */
 export default class InstalledPart extends Phaser.GameObjects.Container {
-    /**
-     * @param {Phaser.Scene} scene
-     * @param {number} x - Локальная позиция X
-     * @param {number} y - Локальная позиция Y
-     * @param {Object} itemData - Данные о предмете (id, type, color...)
-     * @param {number} width - Ширина слота (зоны)
-     * @param {number} height - Высота слота (зоны)
-     */
     constructor(scene, x, y, itemData, width, height) {
         super(scene, x, y);
 
@@ -22,38 +13,33 @@ export default class InstalledPart extends Phaser.GameObjects.Container {
         this.isFullyInstalled = false;
         this.screws = [];
 
-        // 1. Создаем основной спрайт детали
+        // 1. Основной спрайт
         this.mainSprite = scene.add.sprite(0, 0, 'placeholder_item');
         this.mainSprite.setTint(parseInt(itemData.color.replace('#', '0x'), 16));
         this.mainSprite.setDisplaySize(width * 0.9, height * 0.9);
         this.add(this.mainSprite);
 
-        // 2. Инициализируем винты (но пока скрываем)
+        // 2. Инициализация винтов
         this.initScrews(width * 0.9, height * 0.9);
     }
 
-    /**
-     * Расставляет 4 винта по углам
-     */
     initScrews(w, h) {
-        const offset = 10; // Отступ от края
+        const offset = 10;
         const positions = [
-            { x: -w/2 + offset, y: -h/2 + offset }, // Top Left
-            { x: w/2 - offset, y: -h/2 + offset },  // Top Right
-            { x: -w/2 + offset, y: h/2 - offset },  // Bot Left
-            { x: w/2 - offset, y: h/2 - offset }    // Bot Right
+            { x: -w/2 + offset, y: -h/2 + offset },
+            { x: w/2 - offset, y: -h/2 + offset },
+            { x: -w/2 + offset, y: h/2 - offset },
+            { x: w/2 - offset, y: h/2 - offset }
         ];
 
         positions.forEach((pos, index) => {
             const screw = this.scene.add.sprite(pos.x, pos.y, 'screw_head');
             screw.setScale(0.8);
-            screw.setTint(0xff5555); // Красный - значит не закручен
-            screw.setVisible(false); // Скрыты до момента установки
+            screw.setTint(0xff5555); // Красный - не закручен
+            screw.setVisible(false);
             
-            // Интерактивность винта
             screw.setInteractive({ cursor: 'pointer' });
             screw.on('pointerdown', (pointer) => {
-                // Останавливаем всплытие, чтобы не триггерить клик по корпусу (если будет)
                 pointer.event.stopPropagation();
                 this.tightenScrew(screw, index);
             });
@@ -63,9 +49,6 @@ export default class InstalledPart extends Phaser.GameObjects.Container {
         });
     }
 
-    /**
-     * Показать винты с анимацией "pop-in"
-     */
     showScrews() {
         this.screws.forEach((sObj, i) => {
             sObj.sprite.setVisible(true);
@@ -75,38 +58,31 @@ export default class InstalledPart extends Phaser.GameObjects.Container {
                 targets: sObj.sprite,
                 scale: 0.8,
                 duration: 300,
-                delay: i * 50, // Появляются по очереди
+                delay: i * 50,
                 ease: 'Back.out'
             });
         });
     }
 
-    /**
-     * Логика закручивания винта
-     */
     tightenScrew(screwSprite, index) {
         const screwObj = this.screws[index];
-        if (screwObj.isTight) return; // Уже закручен
+        if (screwObj.isTight) return;
 
-        // 1. Анимация вращения
         this.scene.tweens.add({
             targets: screwSprite,
-            angle: 360, // Полный оборот
+            angle: 360,
             duration: 300,
             ease: 'Power2',
             onComplete: () => {
-                // 2. Смена состояния
-                screwSprite.setTint(0xcccccc); // Серебряный - закручен
-                screwSprite.setAngle(0); // Сброс угла
+                screwSprite.setTint(0xcccccc);
+                screwSprite.setAngle(0);
                 screwObj.isTight = true;
 
-                // 3. Эффект искры (через VFX Manager, если доступен в сцене)
                 if (this.scene.vfxManager) {
                     const worldPos = this.getScrewWorldPosition(screwSprite);
                     this.scene.vfxManager.playScrewTighten(worldPos.x, worldPos.y);
                 }
 
-                // 4. Проверка завершения
                 this.checkFullInstallation();
             }
         });
@@ -116,9 +92,7 @@ export default class InstalledPart extends Phaser.GameObjects.Container {
         const allTight = this.screws.every(s => s.isTight);
         if (allTight && !this.isFullyInstalled) {
             this.isFullyInstalled = true;
-            console.log('Part fully installed!');
             
-            // Фидбек успешной сборки (зеленая вспышка спрайта)
             this.scene.tweens.add({
                 targets: this.mainSprite,
                 alpha: 0.5,
@@ -133,10 +107,24 @@ export default class InstalledPart extends Phaser.GameObjects.Container {
     }
 
     /**
-     * Хелпер для получения мировых координат винта (для партиклов)
+     * Моментальная установка (для загрузки сохранений).
+     * Делает винты видимыми и закрученными без анимаций.
      */
+    instantInstall() {
+        this.isFullyInstalled = true;
+        
+        this.screws.forEach(sObj => {
+            sObj.isTight = true;
+            sObj.sprite.setVisible(true);
+            sObj.sprite.setTint(0xcccccc); // Цвет закрученного винта
+            sObj.sprite.setAngle(0);
+            sObj.sprite.setScale(0.8);
+        });
+        
+        console.log(`Part ${this.itemData.type} restored fully installed.`);
+    }
+
     getScrewWorldPosition(screwSprite) {
-        // Получаем матрицу мира винта
         const matrix = screwSprite.getWorldTransformMatrix();
         return { x: matrix.tx, y: matrix.ty };
     }
